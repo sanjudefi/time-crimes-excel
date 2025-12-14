@@ -11,28 +11,50 @@ const TORONTO_TZ = 'America/Toronto';
 /**
  * Convert UTC timestamp string to Toronto Date object
  * Automatically handles DST transitions
- * Supports both single-digit and double-digit hours (e.g., "2020-08-11 6:00:00" or "2020-08-11 06:00:00")
+ * Supports multiple formats: "2020-08-11 6:00:00", "2020-08-11 06:00:00", "2020-08-11T06:00:00"
  *
  * @param utcTimestamp - UTC timestamp string
  * @returns Date object in Toronto timezone
  */
 export function utcToToronto(utcTimestamp: string): Date {
-  // Normalize the timestamp to ensure double-digit hours/minutes/seconds
-  // This handles both "6:00:00" and "06:00:00" formats
-  const normalizedTimestamp = utcTimestamp.replace(
-    /(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/,
-    (match, date, hour, minute, second) => {
-      return `${date} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`;
+  try {
+    // Clean and normalize the timestamp
+    let cleanTimestamp = utcTimestamp.trim();
+
+    // Replace 'T' with space if present (ISO format)
+    cleanTimestamp = cleanTimestamp.replace('T', ' ');
+
+    // Normalize to ensure double-digit hours/minutes/seconds
+    // Handles: "2020-08-11 6:00:00" -> "2020-08-11 06:00:00"
+    cleanTimestamp = cleanTimestamp.replace(
+      /(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/,
+      (match, year, month, day, hour, minute, second) => {
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`;
+      }
+    );
+
+    // Try parsing with date-fns
+    let utcDate = parse(cleanTimestamp, 'yyyy-MM-dd HH:mm:ss', new Date());
+
+    // Check if parse was successful
+    if (isNaN(utcDate.getTime())) {
+      // Fallback: try native Date parsing
+      utcDate = new Date(cleanTimestamp);
+
+      // If still invalid, throw error
+      if (isNaN(utcDate.getTime())) {
+        throw new Error(`Unable to parse timestamp: "${utcTimestamp}"`);
+      }
     }
-  );
 
-  // Parse the normalized UTC timestamp
-  const utcDate = parse(normalizedTimestamp, 'yyyy-MM-dd HH:mm:ss', new Date());
+    // Convert to Toronto timezone (handles DST automatically)
+    const torontoDate = utcToZonedTime(utcDate, TORONTO_TZ);
 
-  // Convert to Toronto timezone (handles DST automatically)
-  const torontoDate = utcToZonedTime(utcDate, TORONTO_TZ);
-
-  return torontoDate;
+    return torontoDate;
+  } catch (error) {
+    console.error('Timestamp parsing error:', error, 'Input:', utcTimestamp);
+    throw new Error(`Invalid timestamp format: "${utcTimestamp}". Expected format: "YYYY-MM-DD HH:MM:SS"`);
+  }
 }
 
 /**
