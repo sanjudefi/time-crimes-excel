@@ -18,57 +18,46 @@ export interface OHLCRow {
 }
 
 /**
- * Parse CSV file and yield rows one by one
- * Memory-efficient streaming approach for large files
+ * Parse CSV file synchronously
+ * For CSV files, we read the entire file (acceptable for 28-30MB files)
  *
  * @param filePath - Absolute path to CSV file
- * @yields OHLCRow objects
+ * @returns Array of OHLCRow objects
  */
-export async function* parseCSV(filePath: string): AsyncGenerator<OHLCRow> {
-  const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
+export function parseCSV(filePath: string): OHLCRow[] {
+  const fileContent = fs.readFileSync(filePath, 'utf8');
 
-  let isFirstRow = true;
-
-  return new Promise<AsyncGenerator<OHLCRow>>((resolve, reject) => {
-    Papa.parse(fileStream, {
-      header: true,
-      skipEmptyLines: true,
-      step: function(results: Papa.ParseStepResult<any>) {
-        if (isFirstRow) {
-          isFirstRow = false;
-        }
-
-        const row = results.data;
-
-        // Extract and validate columns
-        const timestamp = row['Open time'] || row['timestamp'] || row['Timestamp'];
-        const open = parseFloat(row['Open'] || row['open']);
-        const high = parseFloat(row['High'] || row['high']);
-        const low = parseFloat(row['Low'] || row['low']);
-        const close = parseFloat(row['Close'] || row['close']);
-        const volume = row['Volume'] ? parseFloat(row['Volume']) : undefined;
-
-        if (!timestamp || isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) {
-          return; // Skip invalid rows
-        }
-
-        return {
-          timestamp,
-          open,
-          high,
-          low,
-          close,
-          volume
-        };
-      },
-      complete: function() {
-        resolve();
-      },
-      error: function(error: Error) {
-        reject(error);
-      }
-    });
+  const parseResult = Papa.parse(fileContent, {
+    header: true,
+    skipEmptyLines: true
   });
+
+  const rows: OHLCRow[] = [];
+
+  for (const row of parseResult.data as any[]) {
+    // Extract and validate columns (support multiple naming conventions)
+    const timestamp = row['Open time'] || row['timestamp'] || row['Timestamp'];
+    const open = parseFloat(row['Open'] || row['open']);
+    const high = parseFloat(row['High'] || row['high']);
+    const low = parseFloat(row['Low'] || row['low']);
+    const close = parseFloat(row['Close'] || row['close']);
+    const volume = row['Volume'] ? parseFloat(row['Volume']) : undefined;
+
+    if (!timestamp || isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) {
+      continue; // Skip invalid rows
+    }
+
+    rows.push({
+      timestamp: String(timestamp),
+      open,
+      high,
+      low,
+      close,
+      volume
+    });
+  }
+
+  return rows;
 }
 
 /**

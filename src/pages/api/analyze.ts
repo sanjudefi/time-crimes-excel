@@ -4,7 +4,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { parseXLSX, fileExists, getSourceFilePath } from '../../utils/parser';
+import { parseCSV, parseXLSX, fileExists, getSourceFilePath } from '../../utils/parser';
 import { aggregateData, AnalysisFilters, AnalysisResult } from '../../utils/aggregator';
 
 interface AnalyzeRequest {
@@ -93,37 +93,7 @@ export default async function handler(
     const extension = filename.toLowerCase().split('.').pop();
 
     if (extension === 'csv') {
-      // For CSV, we'll use synchronous parsing for simplicity
-      // For production with very large files, implement streaming
-      const Papa = require('papaparse');
-      const fs = require('fs');
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-
-      const parseResult = Papa.parse(fileContent, {
-        header: true,
-        skipEmptyLines: true
-      });
-
-      rows = parseResult.data.map((row: any) => {
-        const timestamp = row['Open time'] || row['timestamp'] || row['Timestamp'];
-        const open = parseFloat(row['Open'] || row['open']);
-        const high = parseFloat(row['High'] || row['high']);
-        const low = parseFloat(row['Low'] || row['low']);
-        const close = parseFloat(row['Close'] || row['close']);
-        const volume = row['Volume'] ? parseFloat(row['Volume']) : undefined;
-
-        return {
-          timestamp: String(timestamp),
-          open,
-          high,
-          low,
-          close,
-          volume
-        };
-      }).filter((row: any) => {
-        return row.timestamp && !isNaN(row.open) && !isNaN(row.high) && !isNaN(row.low) && !isNaN(row.close);
-      });
-
+      rows = parseCSV(filePath);
     } else if (extension === 'xlsx') {
       rows = parseXLSX(filePath);
     } else {
