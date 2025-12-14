@@ -11,13 +11,23 @@ const TORONTO_TZ = 'America/Toronto';
 /**
  * Convert UTC timestamp string to Toronto Date object
  * Automatically handles DST transitions
+ * Supports both single-digit and double-digit hours (e.g., "2020-08-11 6:00:00" or "2020-08-11 06:00:00")
  *
- * @param utcTimestamp - UTC timestamp string (e.g., "2024-01-15 06:00:00")
+ * @param utcTimestamp - UTC timestamp string
  * @returns Date object in Toronto timezone
  */
 export function utcToToronto(utcTimestamp: string): Date {
-  // Parse the UTC timestamp
-  const utcDate = parse(utcTimestamp, 'yyyy-MM-dd HH:mm:ss', new Date());
+  // Normalize the timestamp to ensure double-digit hours/minutes/seconds
+  // This handles both "6:00:00" and "06:00:00" formats
+  const normalizedTimestamp = utcTimestamp.replace(
+    /(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/,
+    (match, date, hour, minute, second) => {
+      return `${date} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`;
+    }
+  );
+
+  // Parse the normalized UTC timestamp
+  const utcDate = parse(normalizedTimestamp, 'yyyy-MM-dd HH:mm:ss', new Date());
 
   // Convert to Toronto timezone (handles DST automatically)
   const torontoDate = utcToZonedTime(utcDate, TORONTO_TZ);

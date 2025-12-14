@@ -30,7 +30,7 @@ interface AnalysisResult {
 
 export default function Home() {
   // Settings state
-  const [filename, setFilename] = useState('sol_15m_data_2020_to_2025.csv');
+  const [filename, setFilename] = useState('');
   const [noiseThreshold, setNoiseThreshold] = useState(0.02);
 
   // Filter state
@@ -48,6 +48,12 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
+    // Validate filename is selected
+    if (!filename) {
+      setError('Please select a source file');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -138,11 +144,11 @@ export default function Home() {
           <div className="mb-8">
             <button
               onClick={handleAnalyze}
-              disabled={loading || selectedDays.length === 0}
+              disabled={loading || selectedDays.length === 0 || !filename}
               className={`
                 w-full md:w-auto px-8 py-4 rounded-lg font-semibold text-lg
                 transition-colors shadow-lg
-                ${loading || selectedDays.length === 0
+                ${loading || selectedDays.length === 0 || !filename
                   ? 'bg-gray-400 cursor-not-allowed text-gray-700'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }
@@ -160,6 +166,11 @@ export default function Home() {
                 'Generate Analysis'
               )}
             </button>
+            {!filename && (
+              <p className="mt-2 text-sm text-red-600">
+                Please select a source file
+              </p>
+            )}
             {selectedDays.length === 0 && (
               <p className="mt-2 text-sm text-red-600">
                 Please select at least one day of the week
