@@ -30,7 +30,7 @@ interface AnalysisResult {
 
 export default function Home() {
   // Settings state
-  const [filename, setFilename] = useState('solana.csv');
+  const [filename, setFilename] = useState('sol_15m_data_2020_to_2025.csv');
   const [noiseThreshold, setNoiseThreshold] = useState(0.02);
 
   // Filter state

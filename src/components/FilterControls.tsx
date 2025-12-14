@@ -67,12 +67,20 @@ export default function FilterControls({
             value={selectedYear ?? 'all'}
             onChange={(e) => onYearChange(e.target.value === 'all' ? undefined : parseInt(e.target.value))}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={availableYears.length === 0}
           >
-            <option value="all">All Years</option>
+            <option value="all">
+              {availableYears.length === 0 ? 'All Years (run analysis first)' : 'All Years'}
+            </option>
             {availableYears.map(year => (
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
+          {availableYears.length === 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              Year filter will be available after first analysis
+            </p>
+          )}
         </div>
 
         {/* Time Range */}
