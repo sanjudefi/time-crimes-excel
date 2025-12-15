@@ -13,7 +13,9 @@ import {
 } from './timezone';
 
 export interface TimeSlotStats {
-  timeSlot: string;        // e.g., "06:00"
+  timeSlot: string;        // e.g., "06:00-06:15" or "06:00-07:00"
+  timeSlotStart: string;   // Start time e.g., "06:00"
+  timeSlotEnd: string;     // End time e.g., "06:15"
   upCount: number;         // Number of UP candles
   downCount: number;       // Number of DOWN candles
   ignoredCount: number;    // Number of ignored (noise) candles
@@ -33,6 +35,7 @@ export interface AnalysisResult {
 
 export interface AnalysisFilters {
   year?: number;              // Selected year (undefined = all years)
+  interval: number;           // Time interval in minutes (15, 30, 45, 60, 120, 240)
   selectedDays: number[];     // Day indices (0=Sun, 1=Mon, ..., 6=Sat)
   timeRangeStart: string;     // Start time (e.g., "06:00")
   timeRangeEnd: string;       // End time (e.g., "23:45")
@@ -105,6 +108,42 @@ function determineBias(upCount: number, downCount: number): 'UP' | 'DOWN' | 'NEU
 }
 
 /**
+ * Calculate time slot key based on interval
+ * Rounds down to the nearest interval boundary
+ *
+ * @param torontoDate - Date in Toronto timezone
+ * @param interval - Interval in minutes
+ * @returns Time slot key (e.g., "06:00-06:15" or "06:00-07:00")
+ */
+function calculateTimeSlotKey(torontoDate: Date, interval: number): { key: string; start: string; end: string } {
+  const hours = torontoDate.getHours();
+  const minutes = torontoDate.getMinutes();
+
+  // Total minutes since midnight
+  const totalMinutes = hours * 60 + minutes;
+
+  // Round down to nearest interval boundary
+  const slotStartMinutes = Math.floor(totalMinutes / interval) * interval;
+
+  // Calculate start and end times
+  const startHour = Math.floor(slotStartMinutes / 60);
+  const startMin = slotStartMinutes % 60;
+  const endMinutes = slotStartMinutes + interval;
+  const endHour = Math.floor(endMinutes / 60);
+  const endMin = endMinutes % 60;
+
+  // Format times
+  const startTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+  const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+
+  return {
+    key: `${startTime}-${endTime}`,
+    start: startTime,
+    end: endTime
+  };
+}
+
+/**
  * Aggregate OHLC data by time slots with filtering
  *
  * @param rows - Array of OHLC rows
@@ -117,6 +156,8 @@ export function aggregateData(rows: OHLCRow[], filters: AnalysisFilters): Analys
     up: number;
     down: number;
     ignored: number;
+    start: string;
+    end: string;
   }>();
 
   // Track available years
@@ -133,7 +174,9 @@ export function aggregateData(rows: OHLCRow[], filters: AnalysisFilters): Analys
     const torontoDate = utcToToronto(row.timestamp);
     const year = getTorontoYear(torontoDate);
     const dayOfWeek = getTorontoDayOfWeek(torontoDate);
-    const timeSlot = formatTimeSlot(torontoDate);
+
+    // Calculate time slot based on interval
+    const { key: timeSlotKey, start: timeSlotStart, end: timeSlotEnd } = calculateTimeSlotKey(torontoDate, filters.interval);
 
     // Track available years
     yearsSet.add(year);
@@ -148,8 +191,8 @@ export function aggregateData(rows: OHLCRow[], filters: AnalysisFilters): Analys
       continue;
     }
 
-    // Apply time range filter
-    if (!isTimeInRange(timeSlot, filters.timeRangeStart, filters.timeRangeEnd)) {
+    // Apply time range filter (use start time of slot for filtering)
+    if (!isTimeInRange(timeSlotStart, filters.timeRangeStart, filters.timeRangeEnd)) {
       continue;
     }
 
@@ -157,11 +200,17 @@ export function aggregateData(rows: OHLCRow[], filters: AnalysisFilters): Analys
     const classification = classifyCandle(row, filters.noiseThreshold);
 
     // Initialize time slot if needed
-    if (!timeSlotMap.has(timeSlot)) {
-      timeSlotMap.set(timeSlot, { up: 0, down: 0, ignored: 0 });
+    if (!timeSlotMap.has(timeSlotKey)) {
+      timeSlotMap.set(timeSlotKey, {
+        up: 0,
+        down: 0,
+        ignored: 0,
+        start: timeSlotStart,
+        end: timeSlotEnd
+      });
     }
 
-    const stats = timeSlotMap.get(timeSlot)!;
+    const stats = timeSlotMap.get(timeSlotKey)!;
 
     // Update counts
     if (classification === 'UP') {
@@ -179,12 +228,14 @@ export function aggregateData(rows: OHLCRow[], filters: AnalysisFilters): Analys
   // Convert map to array of TimeSlotStats
   const timeSlots: TimeSlotStats[] = [];
 
-  for (const [timeSlot, stats] of timeSlotMap.entries()) {
+  for (const [timeSlotKey, stats] of timeSlotMap.entries()) {
     const dominance = calculateDominance(stats.up, stats.down);
     const bias = determineBias(stats.up, stats.down);
 
     timeSlots.push({
-      timeSlot,
+      timeSlot: timeSlotKey,
+      timeSlotStart: stats.start,
+      timeSlotEnd: stats.end,
       upCount: stats.up,
       downCount: stats.down,
       ignoredCount: stats.ignored,

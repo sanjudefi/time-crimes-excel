@@ -1,6 +1,6 @@
 /**
  * Filter Controls Component
- * Year dropdown, day-of-week multi-select, time range
+ * Year dropdown, interval selector, day-of-week multi-select, time range
  */
 
 import React from 'react';
@@ -9,6 +9,8 @@ interface FilterControlsProps {
   availableYears: number[];
   selectedYear: number | undefined;
   onYearChange: (year: number | undefined) => void;
+  interval: number;
+  onIntervalChange: (interval: number) => void;
   selectedDays: number[];
   onDaysChange: (days: number[]) => void;
   timeRangeStart: string;
@@ -26,10 +28,21 @@ const DAYS = [
   { index: 0, name: 'Sunday' },
 ];
 
+const INTERVALS = [
+  { value: 15, label: '15 minutes' },
+  { value: 30, label: '30 minutes' },
+  { value: 45, label: '45 minutes' },
+  { value: 60, label: '1 hour' },
+  { value: 120, label: '2 hours' },
+  { value: 240, label: '4 hours' },
+];
+
 export default function FilterControls({
   availableYears,
   selectedYear,
   onYearChange,
+  interval,
+  onIntervalChange,
   selectedDays,
   onDaysChange,
   timeRangeStart,
@@ -56,7 +69,7 @@ export default function FilterControls({
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Filters</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Year Dropdown */}
         <div>
           <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-2">
@@ -81,6 +94,26 @@ export default function FilterControls({
               Year filter will be available after first analysis
             </p>
           )}
+        </div>
+
+        {/* Interval Dropdown */}
+        <div>
+          <label htmlFor="interval" className="block text-sm font-medium text-gray-700 mb-2">
+            Time Interval
+          </label>
+          <select
+            id="interval"
+            value={interval}
+            onChange={(e) => onIntervalChange(parseInt(e.target.value))}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {INTERVALS.map(int => (
+              <option key={int.value} value={int.value}>{int.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Aggregation window for analysis
+          </p>
         </div>
 
         {/* Time Range */}

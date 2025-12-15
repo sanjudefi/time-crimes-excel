@@ -36,6 +36,7 @@ export default function Home() {
   // Filter state
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [interval, setInterval] = useState(15); // Default 15 minutes
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]); // All days selected by default
   const [timeRangeStart, setTimeRangeStart] = useState('06:00');
   const [timeRangeEnd, setTimeRangeEnd] = useState('23:45');
@@ -66,6 +67,7 @@ export default function Home() {
         body: JSON.stringify({
           filename,
           year: selectedYear,
+          interval,
           selectedDays,
           timeRangeStart,
           timeRangeEnd,
@@ -133,6 +135,8 @@ export default function Home() {
             availableYears={availableYears}
             selectedYear={selectedYear}
             onYearChange={setSelectedYear}
+            interval={interval}
+            onIntervalChange={setInterval}
             selectedDays={selectedDays}
             onDaysChange={setSelectedDays}
             timeRangeStart={timeRangeStart}

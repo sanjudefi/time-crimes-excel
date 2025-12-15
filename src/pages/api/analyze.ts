@@ -10,6 +10,7 @@ import { aggregateData, AnalysisFilters, AnalysisResult } from '../../utils/aggr
 interface AnalyzeRequest {
   filename: string;
   year?: number;
+  interval: number;
   selectedDays: number[];
   timeRangeStart: string;
   timeRangeEnd: string;
@@ -34,6 +35,7 @@ export default async function handler(
     const {
       filename,
       year,
+      interval,
       selectedDays,
       timeRangeStart,
       timeRangeEnd,
@@ -45,6 +47,13 @@ export default async function handler(
       return res.status(400).json({
         error: 'Missing required field',
         details: 'filename is required'
+      });
+    }
+
+    if (!interval || ![15, 30, 45, 60, 120, 240].includes(interval)) {
+      return res.status(400).json({
+        error: 'Invalid field',
+        details: 'interval must be one of: 15, 30, 45, 60, 120, 240 minutes'
       });
     }
 
@@ -114,6 +123,7 @@ export default async function handler(
     // Create filters object
     const filters: AnalysisFilters = {
       year,
+      interval,
       selectedDays,
       timeRangeStart,
       timeRangeEnd,
