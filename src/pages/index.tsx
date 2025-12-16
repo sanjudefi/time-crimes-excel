@@ -7,7 +7,9 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import SettingsPanel from '../components/SettingsPanel';
 import FilterControls from '../components/FilterControls';
+import DateRangeFilter from '../components/DateRangeFilter';
 import ResultsDisplay from '../components/ResultsDisplay';
+import { calculateDateRange } from '../utils/datePresets';
 
 interface TimeSlotStats {
   timeSlot: string;
@@ -36,6 +38,9 @@ export default function Home() {
   // Filter state
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [datePreset, setDatePreset] = useState('all'); // Date range preset
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [interval, setInterval] = useState(15); // Default 15 minutes
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]); // All days selected by default
   const [timeRangeStart, setTimeRangeStart] = useState('06:00');
@@ -67,6 +72,8 @@ export default function Home() {
         body: JSON.stringify({
           filename,
           year: selectedYear,
+          dateStart: datePreset === 'custom' ? customStartDate : calculateDateRange(datePreset).startDate,
+          dateEnd: datePreset === 'custom' ? customEndDate : calculateDateRange(datePreset).endDate,
           interval,
           selectedDays,
           timeRangeStart,
@@ -99,6 +106,11 @@ export default function Home() {
   const handleTimeRangeChange = (start: string, end: string) => {
     setTimeRangeStart(start);
     setTimeRangeEnd(end);
+  };
+
+  const handleCustomDateChange = (start: string, end: string) => {
+    setCustomStartDate(start);
+    setCustomEndDate(end);
   };
 
   return (
@@ -142,6 +154,15 @@ export default function Home() {
             timeRangeStart={timeRangeStart}
             timeRangeEnd={timeRangeEnd}
             onTimeRangeChange={handleTimeRangeChange}
+          />
+
+          {/* Date Range Filter */}
+          <DateRangeFilter
+            datePreset={datePreset}
+            onDatePresetChange={setDatePreset}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomDateChange={handleCustomDateChange}
           />
 
           {/* Analyze Button */}

@@ -192,20 +192,27 @@ export default function SettingsPanel({
       {/* Timezone Info */}
       <div className="mt-6 p-4 bg-blue-50 rounded-md border border-blue-200">
         <h3 className="text-sm font-semibold text-blue-900 mb-2">Timezone Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <span className="font-medium text-blue-800">Source Timezone:</span>
-            <span className="ml-2 text-gray-700">UTC</span>
+            <span className="ml-2 text-gray-700">UTC (Coordinated Universal Time)</span>
           </div>
           <div>
             <span className="font-medium text-blue-800">Convert To:</span>
             <span className="ml-2 text-gray-700">Toronto (America/Toronto)</span>
           </div>
           <div>
-            <span className="font-medium text-blue-800">Interval:</span>
-            <span className="ml-2 text-gray-700">15 minutes</span>
+            <span className="font-medium text-blue-800">Winter (EST):</span>
+            <span className="ml-2 text-gray-700">UTC-5 (Nov-Mar)</span>
+          </div>
+          <div>
+            <span className="font-medium text-blue-800">Summer (EDT):</span>
+            <span className="ml-2 text-gray-700">UTC-4 (Mar-Nov)</span>
           </div>
         </div>
+        <p className="text-xs text-blue-700 mt-2">
+          ℹ️ DST transitions handled automatically - no manual adjustment needed
+        </p>
       </div>
     </div>
   );

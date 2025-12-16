@@ -35,6 +35,8 @@ export interface AnalysisResult {
 
 export interface AnalysisFilters {
   year?: number;              // Selected year (undefined = all years)
+  dateStart?: string;         // Start date (YYYY-MM-DD) for custom range
+  dateEnd?: string;           // End date (YYYY-MM-DD) for custom range
   interval: number;           // Time interval in minutes (15, 30, 45, 60, 120, 240)
   selectedDays: number[];     // Day indices (0=Sun, 1=Mon, ..., 6=Sat)
   timeRangeStart: string;     // Start time (e.g., "06:00")
@@ -184,6 +186,19 @@ export function aggregateData(rows: OHLCRow[], filters: AnalysisFilters): Analys
     // Apply year filter
     if (filters.year !== undefined && year !== filters.year) {
       continue;
+    }
+
+    // Apply date range filter
+    if (filters.dateStart || filters.dateEnd) {
+      const dateStr = torontoDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      if (filters.dateStart && dateStr < filters.dateStart) {
+        continue;
+      }
+
+      if (filters.dateEnd && dateStr > filters.dateEnd) {
+        continue;
+      }
     }
 
     // Apply day of week filter
