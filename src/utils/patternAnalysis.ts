@@ -8,7 +8,21 @@
  * Used for identifying trading patterns and correlations within the same day.
  */
 
+import { utcToToronto } from './timezone';
+
 export type SlotDirection = 'UP' | 'DOWN' | 'NEUTRAL';
+
+/**
+ * OHLC Row interface (matches parser output)
+ */
+export interface OHLCRow {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
 
 /**
  * Signature of a single trading day
@@ -43,19 +57,17 @@ export interface PatternAnalysisConfig {
  * Groups candles by day and classifies each 15-min slot
  */
 export function buildDaySignatures(
-  rows: Array<{
-    torontoDate: Date;
-    open: number;
-    close: number;
-  }>,
+  rows: OHLCRow[],
   noiseThreshold: number
 ): DaySignature[] {
   // Group by date
   const dayMap = new Map<string, Map<string, SlotDirection>>();
 
   for (const row of rows) {
-    const date = row.torontoDate.toISOString().split('T')[0];
-    const timeSlot = row.torontoDate.toTimeString().slice(0, 5); // "HH:MM"
+    // Convert UTC timestamp to Toronto time
+    const torontoDate = utcToToronto(row.timestamp);
+    const date = torontoDate.toISOString().split('T')[0];
+    const timeSlot = torontoDate.toTimeString().slice(0, 5); // "HH:MM"
 
     // Classify direction
     const changePercent = ((row.close - row.open) / row.open) * 100;

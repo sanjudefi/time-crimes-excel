@@ -10,7 +10,8 @@
  * - Reasoning (which earlier slot triggered the pattern)
  */
 
-import { PatternRelationship, SlotDirection } from './patternAnalysis';
+import { PatternRelationship, SlotDirection, OHLCRow } from './patternAnalysis';
+import { utcToToronto } from './timezone';
 
 export type TradeBias = 'LONG' | 'SHORT' | 'AVOID';
 export type BiasStrength = 'STRONG' | 'WEAK' | 'NONE';
@@ -60,11 +61,7 @@ export interface TodayModeConfig {
  * Determines what has already happened today
  */
 export function analyzeTodayCandles(
-  rows: Array<{
-    torontoDate: Date;
-    open: number;
-    close: number;
-  }>,
+  rows: OHLCRow[],
   noiseThreshold: number,
   todayDate: string, // YYYY-MM-DD
   currentTime: Date   // Toronto time
@@ -72,7 +69,9 @@ export function analyzeTodayCandles(
   const completedCandles: TodayCandle[] = [];
 
   for (const row of rows) {
-    const rowDate = row.torontoDate.toISOString().split('T')[0];
+    // Convert UTC timestamp to Toronto time
+    const torontoDate = utcToToronto(row.timestamp);
+    const rowDate = torontoDate.toISOString().split('T')[0];
 
     // Only process today's data
     if (rowDate !== todayDate) {
@@ -80,11 +79,11 @@ export function analyzeTodayCandles(
     }
 
     // Only include candles that have already closed
-    if (row.torontoDate >= currentTime) {
+    if (torontoDate >= currentTime) {
       continue;
     }
 
-    const timeSlot = row.torontoDate.toTimeString().slice(0, 5); // "HH:MM"
+    const timeSlot = torontoDate.toTimeString().slice(0, 5); // "HH:MM"
     const changePercent = ((row.close - row.open) / row.open) * 100;
 
     let direction: SlotDirection = 'NEUTRAL';
@@ -242,11 +241,7 @@ export function projectRemainingSlots(
  * Generate complete today analysis
  */
 export function generateTodayAnalysis(
-  rows: Array<{
-    torontoDate: Date;
-    open: number;
-    close: number;
-  }>,
+  rows: OHLCRow[],
   patterns: PatternRelationship[],
   noiseThreshold: number,
   config: TodayModeConfig
@@ -296,11 +291,12 @@ export function generateTodayAnalysis(
  * Helper for generating slot lists
  */
 export function getAllTimeSlots(
-  rows: Array<{ torontoDate: Date }>
+  rows: OHLCRow[]
 ): string[] {
   const slots = new Set<string>();
   for (const row of rows) {
-    const timeSlot = row.torontoDate.toTimeString().slice(0, 5);
+    const torontoDate = utcToToronto(row.timestamp);
+    const timeSlot = torontoDate.toTimeString().slice(0, 5);
     slots.add(timeSlot);
   }
   return Array.from(slots).sort();
