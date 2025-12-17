@@ -43,6 +43,16 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
 - **Signal Alignment** - Combine with time dominance for strongest trade setups
 - **Color-Coded Table** - Green (bullish context), Red (bearish context), White (neutral)
 
+#### 📅 Historical Anniversary Analysis
+- **Multi-Year Comparison** - Compare same date/week/month across last 5 years
+- **High/Low Tracking** - Shows highest and lowest prices for each historical period
+- **Trend Detection** - Identifies if period was bullish, bearish, or neutral
+- **Volatility Analysis** - Calculates price volatility for each year
+- **Seasonal Patterns** - Discover consistent seasonal behavior across years
+- **Comparison Types** - Same Date, Same Week, or Same Month comparison
+- **Interactive Selection** - Choose specific date/week/month to analyze
+- **Summary Statistics** - Average trend, notable years, typical price ranges
+
 ## 📁 Repository Structure
 
 ```
@@ -59,6 +69,7 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
       PatternRelationshipTable.tsx   # NEW: Pattern analysis display
       TodayPlaybook.tsx              # NEW: Today mode display
       SMATrendContext.tsx            # NEW: SMA trend context display
+      HistoricalComparison.tsx       # NEW: Historical anniversary analysis
     /pages            # Next.js pages
       index.tsx       # Main page
       _app.tsx        # App wrapper
@@ -74,6 +85,7 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
       patternAnalysis.ts   # NEW: Pattern detection logic
       todayMode.ts         # NEW: Daily playbook logic
       smaAnalysis.ts       # NEW: SMA trend context logic
+      historicalComparison.ts  # NEW: Historical anniversary analysis
       datePresets.ts       # Date range presets
     /styles
       globals.css     # Global styles with Tailwind
@@ -500,6 +512,263 @@ else if (Close < SMA50):
 - You're looking to filter time slots by market regime
 - You want to avoid counter-trend setups
 - You need additional confirmation for time-based signals
+
+### 📅 Historical Anniversary Analysis
+
+Historical Anniversary Analysis compares what happened on the same date, week, or month across the last 5 years. This reveals seasonal patterns, typical price ranges, and recurring trends that occur during specific calendar periods.
+
+#### What is Historical Anniversary Analysis?
+
+Instead of analyzing time-of-day patterns, this feature looks at **calendar-based patterns**:
+- What historically happens on December 20th across multiple years?
+- How does price behave during Week 51 (mid-December) every year?
+- Is September typically bullish or bearish?
+
+This helps traders:
+- **Anticipate seasonal behavior** - Some dates/weeks/months consistently show similar trends
+- **Set realistic expectations** - Understand typical high/low ranges for a period
+- **Identify anomalies** - Recognize when current price action deviates from historical norms
+- **Plan entries/exits** - Know when historically strong or weak periods occur
+
+#### How It Works
+
+1. **Period Selection**
+   - Choose comparison type: **DATE**, **WEEK**, or **MONTH**
+   - Select specific target (e.g., December 20, Week 51, or September)
+   - System defaults to current date/week/month for convenience
+
+2. **Data Grouping**
+   - Groups all candles by year + selected period
+   - **DATE**: Groups by year-month-day (e.g., all Dec 20th across 2024, 2023, 2022...)
+   - **WEEK**: Groups by ISO week number (e.g., Week 51 across all years)
+   - **MONTH**: Groups by month (e.g., all of December across years)
+
+3. **Statistical Calculation**
+   For each year's matching period, calculates:
+   - **High Price**: Highest price reached during that period
+   - **Low Price**: Lowest price reached during that period
+   - **Open Price**: First candle's opening price
+   - **Close Price**: Last candle's closing price
+   - **Price Change**: Close - Open (absolute and percentage)
+   - **Trend Classification**:
+     - **BULLISH**: Price change > +1%
+     - **BEARISH**: Price change < -1%
+     - **NEUTRAL**: Price change between -1% and +1%
+   - **Volatility**: (High - Low) / Low × 100
+
+4. **Summary Aggregation**
+   Across all years (last 5):
+   - Average high, low, and price change
+   - Count of bullish, bearish, and neutral years
+   - Overall average trend
+   - Identification of notable years (highest, lowest, most volatile)
+
+#### How to Use Historical Anniversary Analysis
+
+1. **Enable Historical Anniversary**
+   - Toggle "Historical Anniversary" switch in Advanced Features
+   - Choose comparison type (DATE/WEEK/MONTH)
+   - Select specific target or use defaults (current date/week/month)
+   - Run analysis
+
+2. **Interpret Summary Statistics**
+   - **Average Trend**: Overall tendency (BULLISH/BEARISH/NEUTRAL)
+     - If 3+ out of 5 years are bullish, shows BULLISH average trend
+   - **Average High/Low**: Typical price range to expect
+   - **Average Change**: Typical price movement percentage
+   - **Notable Years**: Highest year, lowest year, most volatile year
+
+3. **Review Year-by-Year Data**
+   - Each row shows one year's historical data for that period
+   - **Green highlighting**: Year with highest price
+   - **Red highlighting**: Year with lowest price
+   - **Yellow highlighting**: Year with most volatility
+   - Compare current year to historical patterns
+
+4. **Make Trading Decisions**
+   - **Strong Historical Bullish Period** (4-5 bullish years out of 5):
+     - Consider LONG bias during this period
+     - Expect upward movement
+     - Set targets based on average high
+   - **Strong Historical Bearish Period** (4-5 bearish years out of 5):
+     - Consider SHORT bias during this period
+     - Expect downward movement
+     - Set targets based on average low
+   - **Mixed Historical Pattern** (no clear dominance):
+     - Use other analysis methods
+     - Reduce position size
+     - Expect choppy behavior
+
+#### Trading Workflow Example
+
+**Scenario**: It's December 17, 2025, and you want to analyze December 20th historically
+
+1. **Enable Historical Anniversary Analysis**
+   - Toggle ON
+   - Select "Same Date"
+   - Month: December (11)
+   - Day: 20
+
+2. **Run Analysis**
+
+3. **Example Results**:
+   ```
+   TARGET: December 20
+   AVERAGE TREND: BULLISH (4 bullish, 1 bearish, 0 neutral)
+   AVERAGE HIGH: $156.42
+   AVERAGE LOW: $148.23
+   AVERAGE CHANGE: +2.3%
+
+   Year-by-Year:
+   2024: High $182.50, Low $175.80, +3.2% (BULLISH) ← Highest year
+   2023: High $143.20, Low $138.40, +2.8% (BULLISH)
+   2022: High $128.60, Low $119.20, -1.5% (BEARISH) ← Most volatile
+   2021: High $155.30, Low $151.00, +1.9% (BULLISH)
+   2020: High $142.50, Low $139.80, +1.8% (BULLISH) ← Lowest year
+   ```
+
+4. **Interpretation**:
+   - **Strong Bullish Pattern**: 4 out of 5 years were bullish
+   - **Average Gain**: +2.3% typical for Dec 20th
+   - **Typical Range**: $148-$156 (adjust for current price level)
+   - **Volatility Note**: 2022 was anomaly (most volatile, only bearish year)
+
+5. **Trading Strategy**:
+   - **Bias**: LONG (historical pattern supports upward movement)
+   - **Entry**: Look for pullbacks on Dec 19th or early Dec 20th
+   - **Target**: Aim for +2-3% gain based on historical average
+   - **Stop Loss**: Below recent lows, account for typical volatility
+   - **Risk Management**: Be aware 1 out of 5 years was bearish (20% chance of reversal)
+
+#### Comparison Types Explained
+
+**1. Same Date (Daily Anniversary)**
+- **Use Case**: Analyze specific important dates (earnings dates, expiry dates, seasonal events)
+- **Example**: "What happens on the 3rd Friday of each month?" (options expiry)
+- **Sample Size**: 1 day per year = 5 days total
+- **Precision**: Very specific, reveals date-specific patterns
+
+**2. Same Week (Weekly Anniversary)**
+- **Use Case**: Broader seasonal analysis, smooth out daily noise
+- **Example**: "How does the week before Christmas typically perform?"
+- **Sample Size**: ~5-7 days per year = 25-35 days total
+- **Precision**: Captures week-long trends
+
+**3. Same Month (Monthly Anniversary)**
+- **Use Case**: Long-term seasonal patterns, quarterly analysis
+- **Example**: "Is September historically a weak month?" (commonly yes for crypto/stocks)
+- **Sample Size**: ~30 days per year = 150 days total
+- **Precision**: Broader view, most reliable due to large sample
+
+#### Technical Details
+
+**Week Number Calculation:**
+```
+ISO Week Date System (week starts Monday)
+Week 1 = First week with Thursday in new year
+Week numbers: 1-52 (sometimes 53)
+```
+
+**Trend Classification:**
+```
+if (priceChangePercent > 1):
+    trend = BULLISH
+else if (priceChangePercent < -1):
+    trend = BEARISH
+else:
+    trend = NEUTRAL
+```
+
+**Volatility Formula:**
+```
+Volatility = ((High - Low) / Low) × 100
+Example: High=$105, Low=$100 → (5/100)×100 = 5% volatility
+```
+
+**Average Trend Determination:**
+```
+If (bullishYears > bearishYears AND bullishYears > neutralYears):
+    averageTrend = BULLISH
+Else if (bearishYears > bullishYears AND bearishYears > neutralYears):
+    averageTrend = BEARISH
+Else:
+    averageTrend = NEUTRAL
+```
+
+#### Important Notes
+
+⚠️ **Limitations:**
+- **Sample Size**: Only 5 data points (5 years)
+  - Statistical significance is limited
+  - Patterns can break easily
+- **Changing Market Conditions**:
+  - Crypto market in 2020 ≠ crypto market in 2024
+  - Market structure evolves
+  - Institutional involvement changes
+- **External Events**:
+  - Major news can override historical patterns
+  - Black swan events break patterns
+  - Regulatory changes impact seasonality
+- **Price Level Differences**:
+  - Absolute prices differ across years
+  - Focus on percentages, not absolute values
+  - Scale price ranges proportionally
+
+💡 **Best Practices:**
+
+1. **Use Percentages, Not Absolute Prices**
+   - If historical range is $100-$110 but current price is $200
+   - Scale proportionally: expect $200-$220 range
+   - Percentage changes are more reliable than absolute prices
+
+2. **Combine with Other Analysis**
+   - Don't trade on historical anniversaries alone
+   - Use as supporting evidence
+   - Combine with:
+     - Time dominance analysis
+     - SMA trend context
+     - Your technical analysis
+     - Fundamental catalysts
+
+3. **Focus on Strong Patterns**
+   - Look for 4-5 out of 5 years showing same trend
+   - Weak patterns (3-2 split) are unreliable
+   - Be skeptical of patterns with high volatility variance
+
+4. **Adjust for Market Regime**
+   - Bull market vs bear market context matters
+   - 2020-2021 bull run ≠ 2022 bear market
+   - Consider filtering to recent years only in changing markets
+
+5. **Watch for Anomalies**
+   - If 4 years show +2% but 1 year shows -15%
+   - Investigate what happened that anomalous year
+   - Could it happen again?
+
+6. **Use Broader Timeframes for Reliability**
+   - **MONTH** comparison most reliable (150 days sample)
+   - **WEEK** comparison moderate reliability (25-35 days)
+   - **DATE** comparison least reliable (5 days sample)
+
+🎯 **When to Use:**
+- Planning trades around known seasonal patterns
+- Setting realistic profit targets based on historical ranges
+- Identifying historically strong/weak periods
+- Validating current price action against historical norms
+- Building calendar-based trading strategies
+
+⚠️ **When NOT to Use:**
+- As standalone trading signal (always combine with other analysis)
+- During major fundamental shifts (new regulations, market structure changes)
+- With very young assets (need 5+ years of data)
+- For short-term intraday trading (use time dominance instead)
+
+🔬 **Research Ideas:**
+- **Holiday Effects**: Analyze days before/after major holidays
+- **Options Expiry**: Study 3rd Friday of each month
+- **Quarterly Patterns**: Compare Q1 vs Q2 vs Q3 vs Q4
+- **Beginning/End of Month**: First 3 days vs last 3 days
+- **Correlation Studies**: Do patterns align across different assets?
 
 ## 🌐 Deploying to Vercel
 

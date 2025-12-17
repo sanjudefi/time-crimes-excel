@@ -12,10 +12,12 @@ import ResultsDisplay from '../components/ResultsDisplay';
 import PatternRelationshipTable from '../components/PatternRelationshipTable';
 import TodayPlaybook from '../components/TodayPlaybook';
 import SMATrendContext from '../components/SMATrendContext';
+import HistoricalComparison from '../components/HistoricalComparison';
 import { calculateDateRange } from '../utils/datePresets';
 import { PatternRelationship } from '../utils/patternAnalysis';
 import { TodayAnalysis } from '../utils/todayMode';
 import { SMAAnalysisResult } from '../utils/smaAnalysis';
+import { HistoricalComparisonResult, ComparisonType, getCurrentDateInfo } from '../utils/historicalComparison';
 
 interface TimeSlotStats {
   timeSlot: string;
@@ -37,6 +39,7 @@ interface AnalysisResult {
   patterns?: PatternRelationship[];
   todayAnalysis?: TodayAnalysis;
   smaAnalysis?: SMAAnalysisResult;
+  historicalComparison?: HistoricalComparisonResult;
 }
 
 export default function Home() {
@@ -59,6 +62,14 @@ export default function Home() {
   const [enablePatterns, setEnablePatterns] = useState(false);
   const [enableTodayMode, setEnableTodayMode] = useState(false);
   const [enableSMA, setEnableSMA] = useState(false);
+  const [enableHistoricalComparison, setEnableHistoricalComparison] = useState(false);
+  const [historicalComparisonType, setHistoricalComparisonType] = useState<ComparisonType>('DATE');
+
+  // Get current date info for defaults
+  const currentDateInfo = getCurrentDateInfo();
+  const [historicalTargetMonth, setHistoricalTargetMonth] = useState(currentDateInfo.month);
+  const [historicalTargetDay, setHistoricalTargetDay] = useState(currentDateInfo.day);
+  const [historicalTargetWeek, setHistoricalTargetWeek] = useState(currentDateInfo.week);
 
   // Results state
   const [results, setResults] = useState<AnalysisResult | null>(null);
@@ -96,6 +107,11 @@ export default function Home() {
           enablePatterns,
           enableTodayMode,
           enableSMA,
+          enableHistoricalComparison,
+          historicalComparisonType,
+          historicalTargetMonth,
+          historicalTargetDay,
+          historicalTargetWeek,
           patternMinSampleSize: 30,
           patternMinConfidence: 60
         })
@@ -253,7 +269,120 @@ export default function Home() {
                 </label>
               </div>
 
-              {(enablePatterns || enableTodayMode || enableSMA) && (
+              {/* Historical Anniversary Analysis Toggle */}
+              <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-1">
+                    📅 Historical Anniversary
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    Compare same date/week/month across last 5 years (high/low prices, trends)
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={enableHistoricalComparison}
+                    onChange={(e) => setEnableHistoricalComparison(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {/* Historical Comparison Controls (shown when enabled) */}
+              {enableHistoricalComparison && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-300">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Comparison Type
+                      </label>
+                      <select
+                        value={historicalComparisonType}
+                        onChange={(e) => setHistoricalComparisonType(e.target.value as ComparisonType)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                      >
+                        <option value="DATE">Same Date</option>
+                        <option value="WEEK">Same Week</option>
+                        <option value="MONTH">Same Month</option>
+                      </select>
+                    </div>
+
+                    {historicalComparisonType === 'DATE' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Month
+                          </label>
+                          <select
+                            value={historicalTargetMonth}
+                            onChange={(e) => setHistoricalTargetMonth(Number(e.target.value))}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                          >
+                            {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, idx) => (
+                              <option key={idx} value={idx}>{month}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Day
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={historicalTargetDay}
+                            onChange={(e) => setHistoricalTargetDay(Number(e.target.value))}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {historicalComparisonType === 'WEEK' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Week Number (1-52)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="52"
+                          value={historicalTargetWeek}
+                          onChange={(e) => setHistoricalTargetWeek(Number(e.target.value))}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                        />
+                      </div>
+                    )}
+
+                    {historicalComparisonType === 'MONTH' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Month
+                        </label>
+                        <select
+                          value={historicalTargetMonth}
+                          onChange={(e) => setHistoricalTargetMonth(Number(e.target.value))}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                        >
+                          {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, idx) => (
+                            <option key={idx} value={idx}>{month}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600">
+                    {historicalComparisonType === 'DATE' && `Comparing ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][historicalTargetMonth]} ${historicalTargetDay} across last 5 years`}
+                    {historicalComparisonType === 'WEEK' && `Comparing Week ${historicalTargetWeek} across last 5 years`}
+                    {historicalComparisonType === 'MONTH' && `Comparing ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][historicalTargetMonth]} across last 5 years`}
+                  </div>
+                </div>
+              )}
+
+              {(enablePatterns || enableTodayMode || enableSMA || enableHistoricalComparison) && (
                 <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
                   <p className="text-xs text-yellow-800">
                     ⚡ Note: Advanced features may increase processing time for large datasets
@@ -342,6 +471,11 @@ export default function Home() {
               {/* SMA Trend Context */}
               {results.smaAnalysis && (
                 <SMATrendContext smaAnalysis={results.smaAnalysis} />
+              )}
+
+              {/* Historical Anniversary Comparison */}
+              {results.historicalComparison && (
+                <HistoricalComparison historicalComparison={results.historicalComparison} />
               )}
             </>
           )}

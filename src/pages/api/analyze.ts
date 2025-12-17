@@ -9,6 +9,7 @@ import { aggregateData, AnalysisFilters, AnalysisResult } from '../../utils/aggr
 import { buildDaySignatures, calculatePairwisePatterns, PatternRelationship, PatternAnalysisConfig } from '../../utils/patternAnalysis';
 import { generateTodayAnalysis, TodayAnalysis, TodayModeConfig } from '../../utils/todayMode';
 import { calculateSMA50, aggregateSMAByTimeSlot, SMAAnalysisResult } from '../../utils/smaAnalysis';
+import { analyzeSameDateAcrossYears, analyzeSameWeekAcrossYears, analyzeSameMonthAcrossYears, HistoricalComparisonResult, ComparisonType, getCurrentDateInfo } from '../../utils/historicalComparison';
 import { utcToToronto } from '../../utils/timezone';
 
 interface AnalyzeRequest {
@@ -24,6 +25,11 @@ interface AnalyzeRequest {
   enablePatterns?: boolean;
   enableTodayMode?: boolean;
   enableSMA?: boolean;
+  enableHistoricalComparison?: boolean;
+  historicalComparisonType?: ComparisonType;
+  historicalTargetMonth?: number;
+  historicalTargetDay?: number;
+  historicalTargetWeek?: number;
   patternMinSampleSize?: number;
   patternMinConfidence?: number;
 }
@@ -37,6 +43,7 @@ interface ExtendedAnalysisResult extends AnalysisResult {
   patterns?: PatternRelationship[];
   todayAnalysis?: TodayAnalysis;
   smaAnalysis?: SMAAnalysisResult;
+  historicalComparison?: HistoricalComparisonResult;
 }
 
 export default async function handler(
@@ -62,6 +69,11 @@ export default async function handler(
       enablePatterns = false,
       enableTodayMode = false,
       enableSMA = false,
+      enableHistoricalComparison = false,
+      historicalComparisonType = 'DATE',
+      historicalTargetMonth,
+      historicalTargetDay,
+      historicalTargetWeek,
       patternMinSampleSize = 30,
       patternMinConfidence = 60
     } = req.body as AnalyzeRequest;
@@ -222,6 +234,38 @@ export default async function handler(
       const smaAnalysis = aggregateSMAByTimeSlot(candlesWithSMA, year);
 
       extendedResult.smaAnalysis = smaAnalysis;
+    }
+
+    // Historical Comparison (if enabled)
+    if (enableHistoricalComparison) {
+      let historicalComparison: HistoricalComparisonResult;
+
+      if (historicalComparisonType === 'DATE') {
+        // Use provided date or current date
+        const currentInfo = getCurrentDateInfo();
+        const targetMonth = historicalTargetMonth !== undefined ? historicalTargetMonth : currentInfo.month;
+        const targetDay = historicalTargetDay !== undefined ? historicalTargetDay : currentInfo.day;
+
+        historicalComparison = analyzeSameDateAcrossYears(rows, targetMonth, targetDay, 5);
+      } else if (historicalComparisonType === 'WEEK') {
+        // Use provided week or current week
+        const currentInfo = getCurrentDateInfo();
+        const targetWeek = historicalTargetWeek !== undefined ? historicalTargetWeek : currentInfo.week;
+
+        historicalComparison = analyzeSameWeekAcrossYears(rows, targetWeek, 5);
+      } else if (historicalComparisonType === 'MONTH') {
+        // Use provided month or current month
+        const currentInfo = getCurrentDateInfo();
+        const targetMonth = historicalTargetMonth !== undefined ? historicalTargetMonth : currentInfo.month;
+
+        historicalComparison = analyzeSameMonthAcrossYears(rows, targetMonth, 5);
+      } else {
+        // Default to DATE comparison
+        const currentInfo = getCurrentDateInfo();
+        historicalComparison = analyzeSameDateAcrossYears(rows, currentInfo.month, currentInfo.day, 5);
+      }
+
+      extendedResult.historicalComparison = historicalComparison;
     }
 
     // Return result
