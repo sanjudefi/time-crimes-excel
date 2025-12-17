@@ -9,7 +9,11 @@ import SettingsPanel from '../components/SettingsPanel';
 import FilterControls from '../components/FilterControls';
 import DateRangeFilter from '../components/DateRangeFilter';
 import ResultsDisplay from '../components/ResultsDisplay';
+import PatternRelationshipTable from '../components/PatternRelationshipTable';
+import TodayPlaybook from '../components/TodayPlaybook';
 import { calculateDateRange } from '../utils/datePresets';
+import { PatternRelationship } from '../utils/patternAnalysis';
+import { TodayAnalysis } from '../utils/todayMode';
 
 interface TimeSlotStats {
   timeSlot: string;
@@ -28,6 +32,8 @@ interface AnalysisResult {
   timeSlots: TimeSlotStats[];
   top5TimeSlots: TimeSlotStats[];
   availableYears: number[];
+  patterns?: PatternRelationship[];
+  todayAnalysis?: TodayAnalysis;
 }
 
 export default function Home() {
@@ -45,6 +51,10 @@ export default function Home() {
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]); // All days selected by default
   const [timeRangeStart, setTimeRangeStart] = useState('06:00');
   const [timeRangeEnd, setTimeRangeEnd] = useState('23:45');
+
+  // Advanced features state
+  const [enablePatterns, setEnablePatterns] = useState(false);
+  const [enableTodayMode, setEnableTodayMode] = useState(false);
 
   // Results state
   const [results, setResults] = useState<AnalysisResult | null>(null);
@@ -78,7 +88,11 @@ export default function Home() {
           selectedDays,
           timeRangeStart,
           timeRangeEnd,
-          noiseThreshold
+          noiseThreshold,
+          enablePatterns,
+          enableTodayMode,
+          patternMinSampleSize: 30,
+          patternMinConfidence: 60
         })
       });
 
@@ -165,6 +179,64 @@ export default function Home() {
             onCustomDateChange={handleCustomDateChange}
           />
 
+          {/* Advanced Features Toggle */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">
+              🚀 Advanced Features
+            </h2>
+            <div className="space-y-4">
+              {/* Pattern Analysis Toggle */}
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-1">
+                    📊 Pattern Analysis
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    Detect intra-day time slot relationships (SAME/OPPOSITE direction patterns)
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={enablePatterns}
+                    onChange={(e) => setEnablePatterns(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {/* Today Mode Toggle */}
+              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-1">
+                    🎯 Today Mode (Daily Playbook)
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    Analyze today's candles and project remaining time slots based on patterns
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={enableTodayMode}
+                    onChange={(e) => setEnableTodayMode(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+              </div>
+
+              {(enablePatterns || enableTodayMode) && (
+                <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
+                  <p className="text-xs text-yellow-800">
+                    ⚡ Note: Advanced features may increase processing time for large datasets
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Analyze Button */}
           <div className="mb-8">
             <button
@@ -222,13 +294,25 @@ export default function Home() {
 
           {/* Results Display */}
           {results && (
-            <ResultsDisplay
-              totalUp={results.totalUp}
-              totalDown={results.totalDown}
-              totalIgnored={results.totalIgnored}
-              timeSlots={results.timeSlots}
-              top5TimeSlots={results.top5TimeSlots}
-            />
+            <>
+              <ResultsDisplay
+                totalUp={results.totalUp}
+                totalDown={results.totalDown}
+                totalIgnored={results.totalIgnored}
+                timeSlots={results.timeSlots}
+                top5TimeSlots={results.top5TimeSlots}
+              />
+
+              {/* Today Mode Playbook */}
+              {results.todayAnalysis && (
+                <TodayPlaybook todayAnalysis={results.todayAnalysis} />
+              )}
+
+              {/* Pattern Relationships */}
+              {results.patterns && (
+                <PatternRelationshipTable patterns={results.patterns} />
+              )}
+            </>
           )}
 
           {/* Footer */}

@@ -6,15 +6,24 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { parseCSV, parseXLSX, fileExists, getSourceFilePath } from '../../utils/parser';
 import { aggregateData, AnalysisFilters, AnalysisResult } from '../../utils/aggregator';
+import { buildDaySignatures, calculatePairwisePatterns, PatternRelationship, PatternAnalysisConfig } from '../../utils/patternAnalysis';
+import { generateTodayAnalysis, TodayAnalysis, TodayModeConfig } from '../../utils/todayMode';
+import { utcToToronto } from '../../utils/timezone';
 
 interface AnalyzeRequest {
   filename: string;
   year?: number;
+  dateStart?: string;
+  dateEnd?: string;
   interval: number;
   selectedDays: number[];
   timeRangeStart: string;
   timeRangeEnd: string;
   noiseThreshold: number;
+  enablePatterns?: boolean;
+  enableTodayMode?: boolean;
+  patternMinSampleSize?: number;
+  patternMinConfidence?: number;
 }
 
 interface ErrorResponse {
@@ -22,9 +31,14 @@ interface ErrorResponse {
   details?: string;
 }
 
+interface ExtendedAnalysisResult extends AnalysisResult {
+  patterns?: PatternRelationship[];
+  todayAnalysis?: TodayAnalysis;
+}
+
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<AnalysisResult | ErrorResponse>
+  res: NextApiResponse<ExtendedAnalysisResult | ErrorResponse>
 ) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -35,11 +49,17 @@ export default async function handler(
     const {
       filename,
       year,
+      dateStart,
+      dateEnd,
       interval,
       selectedDays,
       timeRangeStart,
       timeRangeEnd,
-      noiseThreshold
+      noiseThreshold,
+      enablePatterns = false,
+      enableTodayMode = false,
+      patternMinSampleSize = 30,
+      patternMinConfidence = 60
     } = req.body as AnalyzeRequest;
 
     // Validate required fields
@@ -123,6 +143,8 @@ export default async function handler(
     // Create filters object
     const filters: AnalysisFilters = {
       year,
+      dateStart,
+      dateEnd,
       interval,
       selectedDays,
       timeRangeStart,
@@ -133,8 +155,62 @@ export default async function handler(
     // Aggregate data
     const result = aggregateData(rows, filters);
 
+    // Prepare extended result
+    const extendedResult: ExtendedAnalysisResult = { ...result };
+
+    // Pattern Analysis (if enabled)
+    if (enablePatterns) {
+      const patternConfig: PatternAnalysisConfig = {
+        minSampleSize: patternMinSampleSize,
+        minConfidence: patternMinConfidence,
+        noiseThreshold
+      };
+
+      // Build day signatures from all data
+      const daySignatures = buildDaySignatures(rows, noiseThreshold);
+
+      // Calculate pairwise patterns
+      const patterns = calculatePairwisePatterns(daySignatures, patternConfig);
+
+      extendedResult.patterns = patterns;
+    }
+
+    // Today Mode Analysis (if enabled)
+    if (enableTodayMode) {
+      const todayConfig: TodayModeConfig = {
+        strongBiasThreshold: 65,
+        weakBiasThreshold: 55,
+        currentTime: new Date() // Server time in Toronto timezone
+      };
+
+      // Get patterns (either from above or recalculate if patterns not enabled)
+      let patterns: PatternRelationship[] = [];
+      if (extendedResult.patterns) {
+        patterns = extendedResult.patterns;
+      } else {
+        // Recalculate patterns for today mode
+        const patternConfig: PatternAnalysisConfig = {
+          minSampleSize: patternMinSampleSize,
+          minConfidence: patternMinConfidence,
+          noiseThreshold
+        };
+        const daySignatures = buildDaySignatures(rows, noiseThreshold);
+        patterns = calculatePairwisePatterns(daySignatures, patternConfig);
+      }
+
+      // Generate today analysis
+      const todayAnalysis = generateTodayAnalysis(
+        rows,
+        patterns,
+        noiseThreshold,
+        todayConfig
+      );
+
+      extendedResult.todayAnalysis = todayAnalysis;
+    }
+
     // Return result
-    return res.status(200).json(result);
+    return res.status(200).json(extendedResult);
 
   } catch (error) {
     console.error('Analysis error:', error);

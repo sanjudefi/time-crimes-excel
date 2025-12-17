@@ -4,14 +4,35 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
 
 ## 🎯 Features
 
+### Core Features
 - **No Authentication Required** - Simple single-page tool
 - **Large File Support** - Handles 28-30 MB CSV/XLSX files efficiently
 - **Automatic Timezone Conversion** - UTC to Toronto time with DST handling
-- **Advanced Filtering** - Filter by year, day of week, and time range
+- **Advanced Filtering** - Filter by year, day of week, date range, and time range
 - **Noise Filtering** - Configurable decimal threshold to ignore low-volatility candles
-- **Time-Based Statistics** - 15-minute interval aggregation and analysis
+- **Configurable Intervals** - Analyze 15, 30, 45, 60, 120, or 240-minute time slots
+- **Time-Based Statistics** - Aggregation and analysis with dominance calculations
 - **Visual Results** - Summary cards, top 5 trade windows, and color-coded tables
 - **Vercel-Ready** - Optimized for Vercel serverless deployment
+
+### 🚀 Advanced Features
+
+#### 📊 Pattern Analysis
+- **Intra-Day Pattern Detection** - Identifies time slot relationships within the same trading day
+- **SAME Direction Patterns** - Finds slots that tend to move together (both UP or both DOWN)
+- **OPPOSITE Direction Patterns** - Finds slots that tend to invert (one UP, other DOWN)
+- **Confidence Scoring** - Statistical confidence percentages (60-100%)
+- **Minimum Sample Size** - Requires ≥30 days for reliable patterns
+- **Sortable & Filterable Table** - Interactive UI to explore patterns
+
+#### 🎯 Today Mode (Daily Trading Playbook)
+- **Real-Time Analysis** - Analyzes today's completed candles
+- **Morning Bias Detection** - Identifies overall morning trend (UP/DOWN/NEUTRAL)
+- **Future Slot Projections** - Predicts remaining time slots based on historical patterns
+- **Bias Indicators** - Color-coded LONG/SHORT/AVOID signals
+- **Confidence Tiers** - STRONG (≥65%), WEAK (55-65%), or filtered out (<55%)
+- **Pattern Reasoning** - Shows which earlier slot triggered each projection
+- **Risk Disclaimer** - Clear warnings that patterns are tendencies, not guarantees
 
 ## 📁 Repository Structure
 
@@ -24,17 +45,25 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
     /components        # React components
       SettingsPanel.tsx
       FilterControls.tsx
+      DateRangeFilter.tsx
       ResultsDisplay.tsx
+      PatternRelationshipTable.tsx   # NEW: Pattern analysis display
+      TodayPlaybook.tsx              # NEW: Today mode display
     /pages            # Next.js pages
       index.tsx       # Main page
       _app.tsx        # App wrapper
       _document.tsx   # HTML document
       /api
         analyze.ts    # Vercel serverless function
+        files.ts      # File listing API
+        preview.ts    # File preview API
     /utils            # Utility functions
       timezone.ts     # Timezone conversion (UTC ↔ Toronto)
       parser.ts       # CSV/XLSX parsing
       aggregator.ts   # Data aggregation logic
+      patternAnalysis.ts   # NEW: Pattern detection logic
+      todayMode.ts         # NEW: Daily playbook logic
+      datePresets.ts       # Date range presets
     /styles
       globals.css     # Global styles with Tailwind
   package.json
@@ -148,6 +177,184 @@ Each candle is classified as:
 - **Full Time Slot Table**: All time slots with color coding
   - Green rows: ≥60% UP dominance
   - Red rows: ≥60% DOWN dominance
+
+## 🚀 Advanced Features Guide
+
+### 📊 Pattern Analysis
+
+Pattern Analysis detects intra-day relationships between time slots to identify recurring patterns in market behavior.
+
+#### How It Works
+
+1. **Day Signature Creation**
+   - For each trading day, the system creates a "signature" mapping each 15-minute slot to its direction (UP/DOWN/NEUTRAL)
+   - Example: `{ "09:30": UP, "10:00": DOWN, "14:45": UP, ... }`
+
+2. **Pairwise Pattern Detection**
+   - Compares every pair of time slots across all days
+   - Calculates how often they move in the SAME or OPPOSITE direction
+   - Only stores patterns with ≥60% confidence and ≥30 sample days
+
+3. **Pattern Types**
+   - **SAME Direction**: Slots tend to move together (both UP or both DOWN)
+     - Example: "09:30 → 15:00 SAME 68%" means when 09:30 is green, 15:00 is also green 68% of the time
+   - **OPPOSITE Direction**: Slots tend to invert (one UP, other DOWN)
+     - Example: "10:15 → 14:45 OPPOSITE 63%" means when 10:15 is green, 14:45 is red 63% of the time
+
+#### How to Use Pattern Analysis
+
+1. **Enable Pattern Analysis**
+   - Toggle "Pattern Analysis" switch in the Advanced Features section
+   - Run analysis (may take longer for large datasets)
+
+2. **Interpret Results**
+   - **SAME patterns** suggest continuation/correlation:
+     - Use for confirming trends
+     - If early slot shows strength, expect related slots to follow
+   - **OPPOSITE patterns** suggest mean reversion:
+     - Use for hedge opportunities
+     - If early slot moves one way, expect related slots to reverse
+
+3. **Filter & Sort**
+   - Filter by relationship type (SAME/OPPOSITE)
+   - Adjust minimum confidence threshold
+   - Sort by confidence or sample size
+   - Focus on high-confidence patterns (≥70%)
+
+#### Example Use Cases
+
+- **Trend Following**: If 09:30-09:45 is strongly UP and you have a SAME pattern to 15:00-15:15, consider LONG positions during that afternoon slot
+- **Mean Reversion**: If 10:00-10:15 is strongly UP and you have an OPPOSITE pattern to 14:00-14:15, consider SHORT positions during that afternoon slot
+- **Risk Management**: Patterns with low sample sizes (<50 days) should be treated with caution
+
+### 🎯 Today Mode (Daily Trading Playbook)
+
+Today Mode analyzes what's happened so far today and projects the remaining time slots based on historical patterns.
+
+#### How It Works
+
+1. **Analyze Completed Candles**
+   - Identifies all 15-minute slots that have already closed today
+   - Classifies each as UP, DOWN, or NEUTRAL
+   - Calculates overall morning bias
+
+2. **Pattern Matching**
+   - For each completed slot with a clear direction (UP/DOWN)
+   - Finds all pattern relationships involving that slot
+   - Projects expected direction for future slots
+
+3. **Confidence Scoring**
+   - **STRONG Bias** (≥65% confidence): High-probability setups
+   - **WEAK Bias** (55-65% confidence): Lower-probability setups
+   - **No Signal** (<55%): Filtered out, too unreliable
+
+4. **Bias Classification**
+   - **LONG**: Expected UP movement (green)
+   - **SHORT**: Expected DOWN movement (red)
+   - **AVOID**: No clear pattern (gray)
+
+#### How to Use Today Mode
+
+1. **Enable Today Mode**
+   - Toggle "Today Mode" switch in the Advanced Features section
+   - Best used during trading hours
+   - Requires pattern analysis data (auto-calculated if needed)
+
+2. **Check Morning Bias**
+   - View overall morning trend
+   - UP bias suggests bullish day
+   - DOWN bias suggests bearish day
+   - NEUTRAL suggests mixed/choppy conditions
+
+3. **Review Completed Candles**
+   - See which time slots have already closed
+   - Identify which ones had significant moves
+   - Understand today's market behavior so far
+
+4. **Follow Projections**
+   - **Strong Bias Signals** (≥65%): Primary trade opportunities
+     - High confidence, backed by strong patterns
+     - Use for main trading decisions
+   - **Weak Bias Signals** (55-65%): Secondary opportunities
+     - Lower confidence, use with caution
+     - Consider as supporting evidence only
+
+5. **Read the Reasoning**
+   - Each projection shows which earlier slot triggered it
+   - Example: "Follows 09:30 UP pattern (SAME, 68%)"
+   - Helps understand the pattern logic
+
+#### Trading Workflow Example
+
+**Scenario**: It's 11:00 AM, and you want to plan your afternoon trades
+
+1. Enable Today Mode and run analysis
+2. Check morning bias: **UP (75% confidence)**
+3. Review completed candles:
+   - 09:30-09:45: UP (+2.3%)
+   - 10:00-10:15: UP (+1.8%)
+   - 10:30-10:45: DOWN (-0.5%)
+4. View projections:
+   - **15:00-15:15: STRONG LONG (72% confidence)**
+     - Reason: "Follows 09:30 UP pattern (SAME, 72%)"
+     - Action: Consider LONG position
+   - **14:00-14:15: WEAK SHORT (58% confidence)**
+     - Reason: "Follows 10:00 UP pattern (OPPOSITE, 58%)"
+     - Action: Use as supporting evidence only
+
+5. Make trading decisions based on:
+   - Pattern signals (from playbook)
+   - Your own analysis (price action, indicators)
+   - Risk management rules
+   - Market conditions
+
+#### Important Disclaimers
+
+⚠️ **Critical Warnings**:
+- Patterns are **statistical tendencies**, NOT guarantees
+- Past performance does NOT guarantee future results
+- Use as a **timing filter**, NOT a standalone signal
+- Always combine with:
+  - Your own technical analysis
+  - Fundamental analysis
+  - Risk management
+  - Position sizing
+  - Stop losses
+- Never trade based solely on pattern signals
+- Market conditions can change rapidly
+- Patterns may break during:
+  - Major news events
+  - Low liquidity periods
+  - Unusual market conditions
+  - Regime changes
+
+#### Best Practices
+
+1. **Combine Multiple Signals**
+   - Don't rely on patterns alone
+   - Use with your existing strategy
+   - Confirm with price action
+
+2. **Focus on High Confidence**
+   - Prioritize ≥70% confidence patterns
+   - Be skeptical of 55-65% signals
+   - Ignore <55%
+
+3. **Consider Sample Size**
+   - Prefer patterns with ≥50 days
+   - Be cautious with minimum (30 days)
+   - More data = more reliable
+
+4. **Monitor Performance**
+   - Track pattern accuracy over time
+   - Patterns may degrade
+   - Adjust strategy as needed
+
+5. **Risk Management First**
+   - Always use stop losses
+   - Position size appropriately
+   - Don't over-leverage
+   - Protect capital
 
 ## 🌐 Deploying to Vercel
 
