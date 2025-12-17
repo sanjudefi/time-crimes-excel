@@ -11,9 +11,11 @@ import DateRangeFilter from '../components/DateRangeFilter';
 import ResultsDisplay from '../components/ResultsDisplay';
 import PatternRelationshipTable from '../components/PatternRelationshipTable';
 import TodayPlaybook from '../components/TodayPlaybook';
+import SMATrendContext from '../components/SMATrendContext';
 import { calculateDateRange } from '../utils/datePresets';
 import { PatternRelationship } from '../utils/patternAnalysis';
 import { TodayAnalysis } from '../utils/todayMode';
+import { SMAAnalysisResult } from '../utils/smaAnalysis';
 
 interface TimeSlotStats {
   timeSlot: string;
@@ -34,6 +36,7 @@ interface AnalysisResult {
   availableYears: number[];
   patterns?: PatternRelationship[];
   todayAnalysis?: TodayAnalysis;
+  smaAnalysis?: SMAAnalysisResult;
 }
 
 export default function Home() {
@@ -55,6 +58,7 @@ export default function Home() {
   // Advanced features state
   const [enablePatterns, setEnablePatterns] = useState(false);
   const [enableTodayMode, setEnableTodayMode] = useState(false);
+  const [enableSMA, setEnableSMA] = useState(false);
 
   // Results state
   const [results, setResults] = useState<AnalysisResult | null>(null);
@@ -91,6 +95,7 @@ export default function Home() {
           noiseThreshold,
           enablePatterns,
           enableTodayMode,
+          enableSMA,
           patternMinSampleSize: 30,
           patternMinConfidence: 60
         })
@@ -227,7 +232,28 @@ export default function Home() {
                 </label>
               </div>
 
-              {(enablePatterns || enableTodayMode) && (
+              {/* SMA Trend Context Toggle */}
+              <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-1">
+                    📈 SMA Trend Context
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    Track price position relative to SMA 50 for each time slot (yearly basis)
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={enableSMA}
+                    onChange={(e) => setEnableSMA(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                </label>
+              </div>
+
+              {(enablePatterns || enableTodayMode || enableSMA) && (
                 <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
                   <p className="text-xs text-yellow-800">
                     ⚡ Note: Advanced features may increase processing time for large datasets
@@ -311,6 +337,11 @@ export default function Home() {
               {/* Pattern Relationships */}
               {results.patterns && (
                 <PatternRelationshipTable patterns={results.patterns} />
+              )}
+
+              {/* SMA Trend Context */}
+              {results.smaAnalysis && (
+                <SMATrendContext smaAnalysis={results.smaAnalysis} />
               )}
             </>
           )}

@@ -8,6 +8,7 @@ import { parseCSV, parseXLSX, fileExists, getSourceFilePath } from '../../utils/
 import { aggregateData, AnalysisFilters, AnalysisResult } from '../../utils/aggregator';
 import { buildDaySignatures, calculatePairwisePatterns, PatternRelationship, PatternAnalysisConfig } from '../../utils/patternAnalysis';
 import { generateTodayAnalysis, TodayAnalysis, TodayModeConfig } from '../../utils/todayMode';
+import { calculateSMA50, aggregateSMAByTimeSlot, SMAAnalysisResult } from '../../utils/smaAnalysis';
 import { utcToToronto } from '../../utils/timezone';
 
 interface AnalyzeRequest {
@@ -22,6 +23,7 @@ interface AnalyzeRequest {
   noiseThreshold: number;
   enablePatterns?: boolean;
   enableTodayMode?: boolean;
+  enableSMA?: boolean;
   patternMinSampleSize?: number;
   patternMinConfidence?: number;
 }
@@ -34,6 +36,7 @@ interface ErrorResponse {
 interface ExtendedAnalysisResult extends AnalysisResult {
   patterns?: PatternRelationship[];
   todayAnalysis?: TodayAnalysis;
+  smaAnalysis?: SMAAnalysisResult;
 }
 
 export default async function handler(
@@ -58,6 +61,7 @@ export default async function handler(
       noiseThreshold,
       enablePatterns = false,
       enableTodayMode = false,
+      enableSMA = false,
       patternMinSampleSize = 30,
       patternMinConfidence = 60
     } = req.body as AnalyzeRequest;
@@ -207,6 +211,17 @@ export default async function handler(
       );
 
       extendedResult.todayAnalysis = todayAnalysis;
+    }
+
+    // SMA Analysis (if enabled)
+    if (enableSMA) {
+      // Calculate SMA 50 for all candles
+      const candlesWithSMA = calculateSMA50(rows);
+
+      // Aggregate by time slot for the selected year
+      const smaAnalysis = aggregateSMAByTimeSlot(candlesWithSMA, year);
+
+      extendedResult.smaAnalysis = smaAnalysis;
     }
 
     // Return result

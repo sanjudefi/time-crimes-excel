@@ -34,6 +34,15 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
 - **Pattern Reasoning** - Shows which earlier slot triggered each projection
 - **Risk Disclaimer** - Clear warnings that patterns are tendencies, not guarantees
 
+#### 📈 SMA Trend Context (Yearly)
+- **Price Position Tracking** - Tracks how often price is ABOVE/BELOW SMA 50 for each time slot
+- **Intraday Trend Context** - Identifies bullish vs bearish market regime by time of day
+- **SMA 50 Calculation** - Rolling 50-period simple moving average on 15-minute closes
+- **Yearly Aggregation** - Analyzes SMA context on a per-year basis
+- **Dominant Trend Detection** - Highlights slots with ≥60% above or below SMA
+- **Signal Alignment** - Combine with time dominance for strongest trade setups
+- **Color-Coded Table** - Green (bullish context), Red (bearish context), White (neutral)
+
 ## 📁 Repository Structure
 
 ```
@@ -49,6 +58,7 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
       ResultsDisplay.tsx
       PatternRelationshipTable.tsx   # NEW: Pattern analysis display
       TodayPlaybook.tsx              # NEW: Today mode display
+      SMATrendContext.tsx            # NEW: SMA trend context display
     /pages            # Next.js pages
       index.tsx       # Main page
       _app.tsx        # App wrapper
@@ -63,6 +73,7 @@ A production-ready, Vercel-optimized analytics tool for analyzing large Binance 
       aggregator.ts   # Data aggregation logic
       patternAnalysis.ts   # NEW: Pattern detection logic
       todayMode.ts         # NEW: Daily playbook logic
+      smaAnalysis.ts       # NEW: SMA trend context logic
       datePresets.ts       # Date range presets
     /styles
       globals.css     # Global styles with Tailwind
@@ -355,6 +366,140 @@ Today Mode analyzes what's happened so far today and projects the remaining time
    - Position size appropriately
    - Don't over-leverage
    - Protect capital
+
+### 📈 SMA Trend Context (Yearly)
+
+SMA Trend Context analyzes how often price is ABOVE or BELOW a Simple Moving Average (SMA 50) during each 15-minute time slot, on a yearly basis.
+
+#### What is SMA Trend Context?
+
+Unlike traditional SMA analysis that looks at SMA values, this feature tracks **price position relative to SMA**:
+- How often is the price trading **ABOVE** the SMA 50 during a specific time slot?
+- How often is the price trading **BELOW** the SMA 50 during that same time slot?
+
+This reveals **intraday trend context** — which time slots tend to occur during bullish vs bearish market conditions.
+
+#### How It Works
+
+1. **SMA 50 Calculation**
+   - Calculated on 15-minute candle CLOSE prices
+   - Uses previous 50 candles (rolling window)
+   - Represents short-term intraday trend
+   - First 49 candles skipped (insufficient history)
+
+2. **Price Position Classification**
+   - For each candle: Compare Close vs SMA 50
+   - If Close > SMA 50 → **ABOVE_SMA** (bullish context)
+   - If Close < SMA 50 → **BELOW_SMA** (bearish context)
+
+3. **Time Slot Aggregation**
+   - Group by 15-minute time slot (e.g., "09:30", "14:45")
+   - Count how many times price was ABOVE vs BELOW SMA
+   - Calculate percentages
+   - Filter by selected year
+
+4. **Dominant Trend Detection**
+   - **ABOVE** trend: ≥60% of time above SMA (green highlighting)
+   - **BELOW** trend: ≥60% of time below SMA (red highlighting)
+   - **NEUTRAL**: No clear dominance (white)
+
+#### How to Use SMA Trend Context
+
+1. **Enable SMA Filter**
+   - Toggle "SMA Trend Context" in Advanced Features
+   - Requires a year to be selected for meaningful results
+   - Run analysis
+
+2. **Interpret the Table**
+   - **Green rows (≥60% ABOVE)**: Price tends to be in uptrend during this time
+     - Bullish intraday context
+     - Favor LONG trade setups
+   - **Red rows (≥60% BELOW)**: Price tends to be in downtrend during this time
+     - Bearish intraday context
+     - Favor SHORT trade setups
+   - **White rows (NEUTRAL)**: No clear SMA trend
+     - Mixed market conditions
+     - Rely on other signals
+
+3. **Combine with Time Dominance**
+   - **Strong LONG Setup**: Time slot shows both:
+     - UP dominance (≥60% green candles)
+     - ABOVE SMA trend (≥60% above SMA)
+   - **Strong SHORT Setup**: Time slot shows both:
+     - DOWN dominance (≥60% red candles)
+     - BELOW SMA trend (≥60% below SMA)
+   - **Avoid Conflicting Signals**: Time slot shows:
+     - UP dominance but BELOW SMA trend (or vice versa)
+     - These slots have mixed signals
+
+#### Trading Workflow Example
+
+**Scenario**: Analyzing 2024 data for SOL/USDT
+
+1. Enable SMA Trend Context and select year 2024
+2. Run analysis
+3. Review results:
+
+**Example Results:**
+- **09:30-09:45**:
+  - Time Dominance: 72% UP
+  - SMA Context: 78% ABOVE SMA
+  - **Signal: STRONG LONG** ✅
+
+- **14:00-14:15**:
+  - Time Dominance: 65% DOWN
+  - SMA Context: 71% BELOW SMA
+  - **Signal: STRONG SHORT** ✅
+
+- **10:30-10:45**:
+  - Time Dominance: 68% UP
+  - SMA Context: 45% ABOVE SMA (55% BELOW)
+  - **Signal: CONFLICTING** ⚠️ (time shows UP but trend is DOWN)
+
+4. Trade only slots with **aligned signals**
+5. Avoid or reduce size on conflicting slots
+
+#### Technical Details
+
+**SMA Calculation:**
+```
+SMA(50) = (Close[t-49] + Close[t-48] + ... + Close[t-1] + Close[t]) / 50
+```
+
+**Position Classification:**
+```
+if (Close > SMA50):
+    position = ABOVE_SMA
+else if (Close < SMA50):
+    position = BELOW_SMA
+```
+
+**Time Slot Aggregation:**
+```
+% ABOVE = (Count of ABOVE_SMA candles in slot) / (Total candles in slot) × 100
+% BELOW = (Count of BELOW_SMA candles in slot) / (Total candles in slot) × 100
+```
+
+#### Important Notes
+
+⚠️ **Limitations:**
+- Requires year selection for meaningful results (yearly aggregation)
+- First 49 candles are skipped (SMA calculation requirement)
+- SMA 50 represents **intraday** trend, not daily/weekly trend
+- Works best with sufficient data (minimum 100+ trading days per year)
+
+💡 **Best Practices:**
+- Use SMA context as a **filter**, not a standalone signal
+- Combine with time dominance for strongest setups
+- Focus on slots with clear alignment (both dominance AND SMA trend)
+- Avoid conflicting signals or trade with reduced size
+- Consider overall market conditions and macro trend
+
+🎯 **When to Use:**
+- You want to understand **intraday trend context**
+- You're looking to filter time slots by market regime
+- You want to avoid counter-trend setups
+- You need additional confirmation for time-based signals
 
 ## 🌐 Deploying to Vercel
 
