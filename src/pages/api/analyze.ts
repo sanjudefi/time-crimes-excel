@@ -8,9 +8,17 @@ import { parseCSV, parseXLSX, fileExists, getSourceFilePath } from '../../utils/
 import { aggregateData, AnalysisFilters, AnalysisResult } from '../../utils/aggregator';
 import { buildDaySignatures, calculatePairwisePatterns, PatternRelationship, PatternAnalysisConfig } from '../../utils/patternAnalysis';
 import { generateTodayAnalysis, TodayAnalysis, TodayModeConfig } from '../../utils/todayMode';
-import { calculateSMA50, aggregateSMAByTimeSlot, SMAAnalysisResult } from '../../utils/smaAnalysis';
 import { analyzeSameDateAcrossYears, analyzeSameWeekAcrossYears, analyzeSameMonthAcrossYears, HistoricalComparisonResult, ComparisonType, getCurrentDateInfo } from '../../utils/historicalComparison';
 import { utcToToronto } from '../../utils/timezone';
+
+interface PriceLookupData {
+  openTime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
 
 interface AnalyzeRequest {
   filename: string;
@@ -24,7 +32,6 @@ interface AnalyzeRequest {
   noiseThreshold: number;
   enablePatterns?: boolean;
   enableTodayMode?: boolean;
-  enableSMA?: boolean;
   enableHistoricalComparison?: boolean;
   historicalComparisonType?: ComparisonType;
   historicalTargetMonth?: number;
@@ -32,6 +39,18 @@ interface AnalyzeRequest {
   historicalTargetWeek?: number;
   patternMinSampleSize?: number;
   patternMinConfidence?: number;
+  enablePriceLookup?: boolean;
+  priceLookupDate?: string;  // Format: YYYY-MM-DD
+  priceLookupTime?: string;  // Format: HH:MM
+  enableTradeSimulator?: boolean;
+  simulatorDays?: number[];
+  simulatorEntryTime?: string;  // Format: HH:MM
+  simulatorExitTime?: string;   // Format: HH:MM
+  simulatorDirection?: 'LONG' | 'SHORT';
+  simulatorStopLoss?: number;   // Percentage
+  simulatorTakeProfit?: number; // Percentage
+  simulatorStartDate?: string;  // Format: YYYY-MM-DD
+  simulatorEndDate?: string;    // Format: YYYY-MM-DD
 }
 
 interface ErrorResponse {
@@ -39,11 +58,26 @@ interface ErrorResponse {
   details?: string;
 }
 
+interface TradeSimulationResult {
+  totalTrades: number;
+  winCount: number;
+  lossCount: number;
+  totalProfitLossPercent: number;
+  trades: Array<{
+    date: string;
+    entryPrice: number;
+    exitPrice: number;
+    resultPercent: number;
+    outcome: 'WIN' | 'LOSS' | 'STOPPED' | 'NEUTRAL';
+  }>;
+}
+
 interface ExtendedAnalysisResult extends AnalysisResult {
   patterns?: PatternRelationship[];
   todayAnalysis?: TodayAnalysis;
-  smaAnalysis?: SMAAnalysisResult;
   historicalComparison?: HistoricalComparisonResult;
+  priceLookup?: PriceLookupData;
+  tradeSimulation?: TradeSimulationResult;
 }
 
 export default async function handler(
@@ -68,14 +102,25 @@ export default async function handler(
       noiseThreshold,
       enablePatterns = false,
       enableTodayMode = false,
-      enableSMA = false,
       enableHistoricalComparison = false,
       historicalComparisonType = 'DATE',
       historicalTargetMonth,
       historicalTargetDay,
       historicalTargetWeek,
       patternMinSampleSize = 30,
-      patternMinConfidence = 60
+      patternMinConfidence = 60,
+      enablePriceLookup = false,
+      priceLookupDate,
+      priceLookupTime,
+      enableTradeSimulator = false,
+      simulatorDays = [0, 1, 2, 3, 4, 5, 6],
+      simulatorEntryTime = '09:30',
+      simulatorExitTime = '16:00',
+      simulatorDirection = 'LONG',
+      simulatorStopLoss = 2,
+      simulatorTakeProfit = 5,
+      simulatorStartDate,
+      simulatorEndDate
     } = req.body as AnalyzeRequest;
 
     // Validate required fields
@@ -225,17 +270,6 @@ export default async function handler(
       extendedResult.todayAnalysis = todayAnalysis;
     }
 
-    // SMA Analysis (if enabled)
-    if (enableSMA) {
-      // Calculate SMA 50 for all candles
-      const candlesWithSMA = calculateSMA50(rows);
-
-      // Aggregate by time slot for the selected year
-      const smaAnalysis = aggregateSMAByTimeSlot(candlesWithSMA, year);
-
-      extendedResult.smaAnalysis = smaAnalysis;
-    }
-
     // Historical Comparison (if enabled)
     if (enableHistoricalComparison) {
       let historicalComparison: HistoricalComparisonResult;
@@ -266,6 +300,173 @@ export default async function handler(
       }
 
       extendedResult.historicalComparison = historicalComparison;
+    }
+
+    // Price Lookup (if enabled)
+    if (enablePriceLookup && priceLookupDate && priceLookupTime) {
+      // Find the candle that matches the specified date and time
+      const matchingCandle = rows.find(row => {
+        const torontoDate = utcToToronto(row.timestamp);
+        const date = torontoDate.toISOString().split('T')[0];
+        const time = torontoDate.toTimeString().slice(0, 5);
+
+        return date === priceLookupDate && time === priceLookupTime;
+      });
+
+      if (matchingCandle) {
+        const torontoDate = utcToToronto(matchingCandle.timestamp);
+        const date = torontoDate.toISOString().split('T')[0];
+        const time = torontoDate.toTimeString().slice(0, 8); // HH:MM:SS
+
+        extendedResult.priceLookup = {
+          openTime: `${date} ${time}`,
+          open: matchingCandle.open,
+          high: matchingCandle.high,
+          low: matchingCandle.low,
+          close: matchingCandle.close,
+          volume: matchingCandle.volume
+        };
+      }
+    }
+
+    // Trade Setup Simulator (if enabled)
+    if (enableTradeSimulator && simulatorStartDate && simulatorEndDate) {
+      const trades: TradeSimulationResult['trades'] = [];
+      let totalProfitLoss = 0;
+      let winCount = 0;
+      let lossCount = 0;
+
+      // Group candles by date
+      const candlesByDate: { [key: string]: typeof rows } = {};
+
+      rows.forEach(row => {
+        const torontoDate = utcToToronto(row.timestamp);
+        const date = torontoDate.toISOString().split('T')[0];
+        const dayOfWeek = torontoDate.getDay();
+
+        // Check if date is within simulator range and day is selected
+        if (date >= simulatorStartDate && date <= simulatorEndDate && simulatorDays.includes(dayOfWeek)) {
+          if (!candlesByDate[date]) {
+            candlesByDate[date] = [];
+          }
+          candlesByDate[date].push(row);
+        }
+      });
+
+      // Process each trading day
+      Object.entries(candlesByDate).forEach(([date, dayCandles]) => {
+        // Find entry candle
+        const entryCandle = dayCandles.find(row => {
+          const torontoDate = utcToToronto(row.timestamp);
+          const time = torontoDate.toTimeString().slice(0, 5);
+          return time === simulatorEntryTime;
+        });
+
+        if (!entryCandle) return;
+
+        const entryPrice = entryCandle.close;
+        let exitPrice = entryPrice;
+        let outcome: 'WIN' | 'LOSS' | 'STOPPED' | 'NEUTRAL' = 'NEUTRAL';
+        let hitStopLoss = false;
+        let hitTakeProfit = false;
+
+        // Calculate stop loss and take profit prices
+        const stopLossPrice = simulatorDirection === 'LONG'
+          ? entryPrice * (1 - simulatorStopLoss / 100)
+          : entryPrice * (1 + simulatorStopLoss / 100);
+
+        const takeProfitPrice = simulatorDirection === 'LONG'
+          ? entryPrice * (1 + simulatorTakeProfit / 100)
+          : entryPrice * (1 - simulatorTakeProfit / 100);
+
+        // Find candles after entry time
+        const entryIndex = dayCandles.indexOf(entryCandle);
+        const candlesAfterEntry = dayCandles.slice(entryIndex + 1);
+
+        // Check each candle for stop loss or take profit
+        for (const candle of candlesAfterEntry) {
+          const torontoDate = utcToToronto(candle.timestamp);
+          const time = torontoDate.toTimeString().slice(0, 5);
+
+          // Check if we've reached exit time
+          if (time === simulatorExitTime) {
+            exitPrice = candle.close;
+            break;
+          }
+
+          // Check stop loss and take profit during the candle
+          if (simulatorDirection === 'LONG') {
+            // For LONG: check if low hit stop loss or high hit take profit
+            if (candle.low <= stopLossPrice && !hitTakeProfit) {
+              exitPrice = stopLossPrice;
+              hitStopLoss = true;
+              break;
+            }
+            if (candle.high >= takeProfitPrice && !hitStopLoss) {
+              exitPrice = takeProfitPrice;
+              hitTakeProfit = true;
+              break;
+            }
+          } else {
+            // For SHORT: check if high hit stop loss or low hit take profit
+            if (candle.high >= stopLossPrice && !hitTakeProfit) {
+              exitPrice = stopLossPrice;
+              hitStopLoss = true;
+              break;
+            }
+            if (candle.low <= takeProfitPrice && !hitStopLoss) {
+              exitPrice = takeProfitPrice;
+              hitTakeProfit = true;
+              break;
+            }
+          }
+
+          // If we passed exit time, use previous candle's close
+          if (time > simulatorExitTime) {
+            break;
+          }
+        }
+
+        // Calculate result
+        const resultPercent = simulatorDirection === 'LONG'
+          ? ((exitPrice - entryPrice) / entryPrice) * 100
+          : ((entryPrice - exitPrice) / entryPrice) * 100;
+
+        // Determine outcome
+        if (hitStopLoss) {
+          outcome = 'STOPPED';
+          lossCount++;
+        } else if (hitTakeProfit) {
+          outcome = 'WIN';
+          winCount++;
+        } else if (resultPercent > 0.1) {
+          outcome = 'WIN';
+          winCount++;
+        } else if (resultPercent < -0.1) {
+          outcome = 'LOSS';
+          lossCount++;
+        } else {
+          outcome = 'NEUTRAL';
+        }
+
+        totalProfitLoss += resultPercent;
+
+        trades.push({
+          date,
+          entryPrice,
+          exitPrice,
+          resultPercent,
+          outcome
+        });
+      });
+
+      extendedResult.tradeSimulation = {
+        totalTrades: trades.length,
+        winCount,
+        lossCount,
+        totalProfitLossPercent: totalProfitLoss,
+        trades: trades.sort((a, b) => b.date.localeCompare(a.date)) // Sort by date descending
+      };
     }
 
     // Return result
